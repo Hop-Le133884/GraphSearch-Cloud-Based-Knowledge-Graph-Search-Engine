@@ -3,6 +3,7 @@ bin-debug/
 bin-release/
 [Oo]bj/
 [Bb]in/
+GraphSearch_BuildPlan.md
 
 # Other files and folders
 .settings/
