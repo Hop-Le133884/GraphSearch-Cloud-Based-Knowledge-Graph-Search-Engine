@@ -1,0 +1,59 @@
+
+services:
+
+# -- PostgreSQL
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432" # host:container - 5433 avoids conflict with any local PG
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# -- PgBouncer (connection pooler)
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: "100"
+      DEFAULT_POOL_SIZE: "10"
+    ports:
+      - "6432:5432" # pgBouncer listens on 5432 inside, exposed as 6432 outside
+    depends_on:
+      db:
+        condition: service_healthy
+
+# -- Flask Backend
+  backend:
+    build: ./backend
+    environment:
+      FLASK_DEBUG: "true"
+      SECRET_KEY: ${SECRET_KEY}
+      POSTGRES_HOST: pgbouncer # Flask talks to pooler, not db directly
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      NEO4J_URI: ${NEO4J_URI}
+      NEO4J_USER: ${NEO4J_USER}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      TMDB_API_TOKEN: ${TMDB_API_TOKEN}
+    ports:
+      - "5000:5000"
+    depends_on:
+      - pgbouncer
+    volumes:
+      - ./backend:/app # mounts local code into the container (hot reload)
+      - ./data:/data # for any data files we want to share
+volumes:
+  postgres_data: # named volume - data survives container restarts
+

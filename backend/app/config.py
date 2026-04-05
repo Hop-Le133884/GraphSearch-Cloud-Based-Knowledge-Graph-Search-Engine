@@ -23,4 +23,7 @@ class Config:
     NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
     NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "")
 
-    
+    # TMDB api
+    TMDB_API_TOKEN = os.environ.get("TMDB_API_TOKEN", "")
+
+

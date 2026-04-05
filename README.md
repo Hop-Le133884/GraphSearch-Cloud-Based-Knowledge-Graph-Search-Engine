@@ -7,43 +7,43 @@ A semantic search engine that converts natural language queries into Neo4j graph
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                          FRONTEND (React)                          │
-│              Search bar → Results display → Analytics page         │
+│                          FRONTEND (React)                           │
+│              Search bar → Results display → Analytics page          │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │ REST API
 ┌──────────────────────────────▼──────────────────────────────────────┐
-│                      BACKEND (Python + Flask)                      │
-│                                                                    │
-│  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────┐    │
-│  │  /api/search  │  │  /api/auth   │  │  /api/analytics       │    │
-│  │              │  │              │  │                       │    │
-│  │  1. Check PG │  │  JWT auth    │  │  Top queries, avg     │    │
-│  │     cache    │  │  User CRUD   │  │  latency, graph stats │    │
-│  │  2. If miss: │  │              │  │                       │    │
-│  │     LangChain│  │              │  │                       │    │
-│  │     → Cypher │  │              │  │                       │    │
-│  │     → Neo4j  │  │              │  │                       │    │
-│  │  3. Cache hit│  │              │  │                       │    │
-│  │     in PG    │  │              │  │                       │    │
-│  │  4. Log query│  │              │  │                       │    │
-│  └──────┬───────┘  └──────┬───────┘  └───────────┬───────────┘    │
-│         │                 │                      │                 │
-└─────────┼─────────────────┼──────────────────────┼─────────────────┘
+│                      BACKEND (Python + Flask)                       │
+│                                                                     │
+│  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────┐      │
+│  │ /api/search  │  │  /api/auth   │  │  /api/analytics       │      │
+│  │              │  │              │  │                       │      │
+│  │  1. Check PG │  │  JWT auth    │  │  Top queries, avg     │      │
+│  │     cache    │  │  User CRUD   │  │  latency, graph stats │      │
+│  │  2. If miss: │  │              │  │                       │      │
+│  │     LangChain│  │              │  │                       │      │
+│  │     → Cypher │  │              │  │                       │      │
+│  │     → Neo4j  │  │              │  │                       │      │
+│  │  3. Cache hit│  │              │  │                       │      │
+│  │     in PG    │  │              │  │                       │      │
+│  │  4. Log query│  │              │  │                       │      │
+│  └──────┬───────┘  └──────┬───────┘  └───────────┬───────────┘      │
+│         │                 │                      │                  │
+└─────────┼─────────────────┼──────────────────────┼──────────────────┘
           │                 │                      │
-    ┌─────▼─────┐    ┌─────▼──────────────────────▼──────┐
-    │   Neo4j   │    │          PostgreSQL (RDS)          │
-    │  AuraDB   │    │                                    │
-    │           │    │  users          – auth, roles      │
-    │  Nodes:   │    │  query_logs     – every search     │
-    │  Person   │    │  result_cache   – cached responses │
-    │  Movie    │    │  search_stats   – materialized     │
-    │  Genre    │    │                   analytics view   │
-    │  Company  │    │                                    │
-    │           │    │  PgBouncer (connection pooling)     │
-    │  Edges:   │    │  Indexes on (query_hash, user_id,  │
-    │  DIRECTED │    │            created_at)             │
-    │  ACTED_IN │    │                                    │
-    │  GENRE_OF │    └────────────────────────────────────┘
+    ┌─────▼─────┐     ┌─────▼──────────────────────▼───────┐
+    │   Neo4j   │     │          PostgreSQL (RDS)          │
+    │  AuraDB   │     │                                    │
+    │           │     │  users          – auth, roles      │
+    │  Nodes:   │     │  query_logs     – every search     │
+    │  Person   │     │  result_cache   – cached responses │
+    │  Movie    │     │  search_stats   – materialized     │
+    │  Genre    │     │                   analytics view   │
+    │  Company  │     │                                    │
+    │           │     │  PgBouncer (connection pooling)    │
+    │  Edges:   │     │  Indexes on (query_hash, user_id,  │
+    │  DIRECTED │     │            created_at)             │
+    │  ACTED_IN │     │                                    │
+    │  GENRE_OF │     └────────────────────────────────────┘
     │  WORKS_AT │
     └───────────┘
 ```
@@ -87,4 +87,3 @@ User types: "Who directed movies starring Tom Hanks?"
 ```
 
 ## Project Structure
-
