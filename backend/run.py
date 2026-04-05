@@ -1,0 +1,16 @@
+from dotenv import load_dotenv
+from pathlib import Path
+import os
+
+# Load .env from project root
+load_dotenv(Path(__file__).parent.parent / ".env")
+
+from app import create_app
+
+
+app = create_app()
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+
+

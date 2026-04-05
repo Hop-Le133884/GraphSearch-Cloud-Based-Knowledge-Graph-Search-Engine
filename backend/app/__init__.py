@@ -1,0 +1,16 @@
+from flash import Flask
+from flask_cors import CORS
+from .config import Config
+
+def create_app(config_class=Config):
+    app = Flask(__name__)
+    app.config.from_object(config_class)
+
+    CORS(app)
+
+    # Health check - lets Docker/load balancer verify the app is alive
+    @app.route("/health")
+    def health():
+        return {"status": "ok"}, 200
+    
+    return app
