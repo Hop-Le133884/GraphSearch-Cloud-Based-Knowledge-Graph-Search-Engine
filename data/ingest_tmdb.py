@@ -56,6 +56,7 @@ def fetch_movie_data(movie_id):
             "released": (details.get("release_date") or "")[:4] or None,
             "tagline": details.get("tagline", ""),
             "revenue": details.get("revenue", 0),
+            "bio": details.get("overview", ""), 
         },
         "genres": [
             {"name": g["name"]}
@@ -75,6 +76,68 @@ def fetch_movie_data(movie_id):
         ],
     }
 
+def fetch_person_bio(tmdb_id):
+    """Fetch biography, birthday, place of birth for one person from TMB"""
+    try:
+        data = tmdb_get(f"/person/{tmdb_id}")
+        return {
+            "tmdb_id": data["id"],
+            "bio": data.get("biography", ""),
+            "birthday": data.get("birthday") or "",
+            "place_of_birth": data.get("place_of_birth") or "",
+        }
+    except Exception as e:
+        print(f" skipped person {tmdb_id}: {e}")
+        return None
+
+def enrich_person_bios(session):
+    """Fetch TMDB bios for all Person nodes and write to Neo4j."""
+    print("\nStep 4: Fetching person bios from TMDB...")
+
+    result = session.run("""
+        MATCH (p:Person)
+        WHERE p.bio IS NULL OR p.bio = ''
+        RETURN p.tmdb_id AS tmdb_id
+    """)
+    person_ids = [r["tmdb_id"] for r in result]
+    print(f" {len(person_ids)} persons to enrich\n")
+
+    enriched = 0
+    skipped = 0
+    batch = []
+
+    for i, tmdb_id in enumerate(person_ids, 1):
+        data = fetch_person_bio(tmdb_id)
+        if data:
+            batch.append(data)
+            if len(batch) >= 50:
+                session.run("""
+                UNWIND $persons AS p
+                MERGE (person:Person {tmdb_id: p.tmdb_id})
+                SET person.bio = p.bio,
+                    person.birthday = p.birthday,
+                    person.place_of_birth = p.place_of_birth
+                """, persons=batch)
+                enriched += len(batch)
+                batch = []
+                print(f" {i}/{len(person_ids)} processed, {enriched} person bio enriched")
+        else:
+            skipped += 1
+
+            
+        time.sleep(0.05)
+
+    if batch:
+        session.run("""
+            UNWIND $persons AS p
+            MERGE (person:Person {tmdb_id: p.tmdb_id})
+            SET person.bio = p.bio,
+                person.birthday = p.birthday,
+                person.place_of_birth = p.place_of_birth
+        """, persons=batch)
+        enriched += len(batch)
+
+    print(f"\n Done. {enriched} persons bio enriched, {skipped} skipped")
 # Neo4j writing
 def create_constraints(session):
     """
@@ -105,7 +168,8 @@ def ingest_batch(session, batch):
         SET movie.title = m.title,
             movie.released = m.released,
             movie.tagline = m.tagline,
-            movie.revenue = m.revenue
+            movie.revenue = m.revenue,
+            movie.bio = m.bio
     """, movies=[r["movie"] for r in batch])
 
     # Genres and GENRE_OF relationships
@@ -186,6 +250,8 @@ def main():
 
         if batch:
             ingest_batch(session, batch)
+
+        enrich_person_bios(session)
 
         # Summary
         print("\n=== Node Counts in Neo4j ===")
