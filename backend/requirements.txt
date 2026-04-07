@@ -18,9 +18,15 @@ PyJWT==2.8.0
 neo4j==6.1.0
 
 # HTTP requests (TMDB API calls)
-requests==2.32.3
+requests==2.33.1
 
 # graph pagerank
 networkx==3.3
 numpy==2.4.4
 scipy==1.17.1
+
+# Langchain + openai for NL to Cypher
+langchain==1.2.15
+langchain-community==0.4.1
+langchain-openai==1.1.12
+openai==2.30.0

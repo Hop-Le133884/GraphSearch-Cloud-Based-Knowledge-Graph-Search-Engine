@@ -13,4 +13,9 @@ def create_app(config_class=Config):
     def health():
         return {"status": "ok"}, 200
     
+    # blueprints
+    from app.routes.search import search_bp
+    app.register_blueprint(search_bp)
+
+    
     return app

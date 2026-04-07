@@ -26,4 +26,7 @@ class Config:
     # TMDB api
     TMDB_API_TOKEN = os.environ.get("TMDB_API_TOKEN", "")
 
+    #OPENAI_API_KEY
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+
 
