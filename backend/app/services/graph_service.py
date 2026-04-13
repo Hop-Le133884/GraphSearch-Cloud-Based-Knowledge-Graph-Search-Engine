@@ -34,7 +34,8 @@ Rules:
 1. Return ONLY the Cypher query, no explanation, no markdown, no backticks.
 2. Always LIMIT results to 20.
 3. Always ORDER BY pagerank_score DESC when available.
-4. Use case-insensitive matching: toLower(m.title) CONTAINS toLower($value)
+4. 4. Embed values directly as string literals, never use Cypher parameters like $value.
+   Example: WHERE toLower(m.title) CONTAINS toLower("inception")
 5. For person searches return: name, bio, pagerank_score
 6. For movie searches return: title, released, bio, pagerank_score
 7. Never use APOC procedures.
