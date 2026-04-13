@@ -235,4 +235,5 @@ docker compose down
 docker compose down -v
 ```
 
-If you wipe with `-v`, you need to re-run steps 3 and 4 to repopulate Neo4j.
+If you wipe with `-v`, PostgreSQL data is deleted — you need to re-apply the schema migration.
+Neo4j AuraDB is a cloud service and is unaffected by `down -v`.
