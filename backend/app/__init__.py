@@ -20,5 +20,6 @@ def create_app(config_class=Config):
     from app.routes.auth import auth_bp
     app.register_blueprint(auth_bp)
 
-    
+    from app.routes.analytics import analytics_bp
+    app.register_blueprint(analytics_bp)
     return app
