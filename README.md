@@ -54,6 +54,7 @@ A semantic search engine that converts natural language queries into Neo4j graph
 | Frontend | React, React Router, Recharts |
 | Monitoring | Grafana |
 | Containerization | Docker Compose |
+| Cloud | AWS EC2 + RDS PostgreSQL |
 | Data source | TMDB API (536 movies, 4276 persons) |
 
 ---
@@ -355,3 +356,53 @@ PgBouncer in transaction pool mode (`pool_size=10`) serves 50 concurrent users t
 | `/api/search` (cached) | 28ms | 23ms | 291ms | 19/s | 0 |
 | `/api/analytics` | 48ms | 45ms | 106ms | 5/s | 0 |
 | Aggregated | 33ms | 27ms | 291ms | 25/s | 0 |
+
+---
+
+## Cloud Deployment (AWS)
+
+The app is deployed on AWS using EC2 + RDS, with the same Docker Compose stack running in production.
+
+### Infrastructure
+
+| Resource | Type | Purpose |
+|----------|------|---------|
+| EC2 | Amazon Linux 2023 | Runs all containers (Flask, React, PgBouncer, Grafana) |
+| RDS | PostgreSQL 16 | Managed PostgreSQL — replaces local `db` container |
+| Security Group `graphsearch-ec2` | Inbound: 22 (My IP), 5000, 3000, 3001 | EC2 access |
+| Security Group `graphsearch-rds` | Inbound: 5432 from `graphsearch-ec2` only | RDS never public |
+
+### Architecture change for production
+
+Local dev uses `docker-compose.yml` (PostgreSQL runs as a container).
+EC2 uses `docker-compose.prod.yml` — the local `db` container is removed and PgBouncer points to RDS instead:
+
+```
+PgBouncer → RDS PostgreSQL (private, port 5432, SG-restricted)
+```
+
+RDS is not publicly accessible — only the EC2 instance can reach it via the security group rule.
+
+### Deploying to EC2
+
+```bash
+# On EC2: clone repo, create .env with RDS credentials
+git clone https://github.com/Hop-Le133884/GraphSearch-Cloud-Based-Knowledge-Graph-Search-Engine.git
+cd GraphSearch-Cloud-Based-Knowledge-Graph-Search-Engine
+nano .env   # set POSTGRES_HOST to RDS endpoint
+
+# Apply schema to RDS
+psql "host=<rds-endpoint> port=5432 dbname=graphsearch user=graphsearch sslmode=require" \
+  < backend/migrations/001_schema.sql
+
+# Start all containers using the production compose file
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+### Live URLs (EC2 public IP: 98.81.243.90)
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://98.81.243.90:3000 |
+| Backend API | http://98.81.243.90:5000/health |
+| Grafana | http://98.81.243.90:3001 (admin / admin) |
