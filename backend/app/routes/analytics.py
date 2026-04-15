@@ -1,10 +1,12 @@
 from flask import Blueprint, jsonify
 from app.services.cache_service import get_db_conn
+from app.services.auth_service import require_role
 
 
 analytics_bp = Blueprint("analytics", __name__)
 
 @analytics_bp.route("/api/analytics", methods=["GET"])
+@require_role("admin")
 def analytics():
     conn = get_db_conn()
     try:

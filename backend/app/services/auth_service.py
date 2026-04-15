@@ -3,6 +3,8 @@ import bcrypt
 import jwt
 import psycopg2
 from datetime import datetime, timezone, timedelta
+from functools import wraps
+from flask import request, jsonify
 from app.services.cache_service import get_db_conn
 
 def register_user(email: str, password: str) -> dict:
@@ -67,4 +69,23 @@ def decode_token(token: str) -> dict | None:
         return jwt.decode(token, os.environ["SECRET_KEY"], algorithms=["HS256"])
     except jwt.PyJWKError:
         return None
-    
+
+
+def require_role(role: str):
+    """Decorator: requires a valid JWT with the given role."""
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            auth_header = request.headers.get("Authorization", "")
+            if not auth_header.startswith("Bearer "):
+                return jsonify({"error": "Missing token"}), 401
+            token = auth_header.split(" ", 1)[1]
+            payload = decode_token(token)
+            if payload is None:
+                return jsonify({"error": "Invalid or expired token"}), 401
+            if payload.get("role") != role:
+                return jsonify({"error": "Forbidden"}), 403
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
+
