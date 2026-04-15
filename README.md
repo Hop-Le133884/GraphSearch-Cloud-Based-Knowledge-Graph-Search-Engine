@@ -1,6 +1,6 @@
 # GraphSearch — Cloud-Based Knowledge Graph Search Engine
 
-A semantic search engine that converts natural language queries into Neo4j graph traversals, backed by PostgreSQL for caching, auth, and analytics — with a React frontend.
+A semantic search engine that converts natural language queries into Neo4j graph traversals, backed by PostgreSQL for caching, auth, and analytics — with a React frontend and Grafana monitoring.
 
 **Example:** Ask `"Who directed Inception?"` → LangChain converts it to Cypher → runs against Neo4j → returns Christopher Nolan with bio and PageRank score. Repeated queries are served from PostgreSQL cache (~28x faster).
 
@@ -32,7 +32,29 @@ A semantic search engine that converts natural language queries into Neo4j graph
     │  AuraDB   │     │  users, query_logs, result_cache    │
     └───────────┘     │  PgBouncer (connection pooling)     │
                       └────────────────────────────────────┘
+                                     │
+                      ┌──────────────▼──────────────┐
+                      │     Grafana (port 3001)      │
+                      │  latency · cache · queries   │
+                      └─────────────────────────────┘
 ```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Graph database | Neo4j AuraDB Free |
+| NL → Cypher | LangChain + GPT-4o-mini |
+| Graph ranking | NetworkX (weighted PageRank) |
+| Backend | Python, Flask, psycopg2 |
+| Cache + auth DB | PostgreSQL 16 + PgBouncer |
+| Auth | bcrypt + JWT (PyJWT) |
+| Frontend | React, React Router, Recharts |
+| Monitoring | Grafana |
+| Containerization | Docker Compose |
+| Data source | TMDB API (536 movies, 4276 persons) |
 
 ---
 
@@ -49,7 +71,7 @@ A semantic search engine that converts natural language queries into Neo4j graph
 
 ```
 GraphSearch/
-├── docker-compose.yml          # PostgreSQL + PgBouncer + Flask + React
+├── docker-compose.yml          # PostgreSQL + PgBouncer + Flask + React + Grafana
 ├── .env                        # your secrets (not committed)
 ├── .env.example                # template for .env
 │
@@ -58,7 +80,9 @@ GraphSearch/
 │   ├── requirements.txt
 │   ├── run.py                  # Flask entry point
 │   ├── migrations/
-│   │   └── 001_schema.sql      # users, query_logs, result_cache tables
+│   │   ├── 001_schema.sql           # users, query_logs, result_cache tables
+│   │   ├── 002_seed_query_logs.py   # seeds 50K rows for benchmarking
+│   │   └── 003_optimization_notes.sql  # EXPLAIN ANALYZE before/after results
 │   ├── app/
 │   │   ├── __init__.py         # app factory, registers blueprints
 │   │   ├── config.py           # reads env vars
@@ -71,7 +95,8 @@ GraphSearch/
 │   │       ├── cache_service.py   # PostgreSQL cache + query logging
 │   │       └── auth_service.py    # bcrypt + JWT
 │   └── tests/
-│       └── test_search.py      # pytest suite
+│       ├── test_search.py      # pytest suite
+│       └── locustfile.py       # load test (50 concurrent users)
 │
 ├── frontend/
 │   └── src/
@@ -129,37 +154,31 @@ OPENAI_API_KEY=sk-...
 docker compose up --build -d
 ```
 
-This starts four services:
-- `db` — PostgreSQL on port 5433
-- `pgbouncer` — connection pooler on port 6432
-- `backend` — Flask API on port 5000
-- `frontend` — React dev server on port 3000
+This starts five services:
 
-Verify they're running:
+| Service | Port | Purpose |
+|---------|------|---------|
+| `db` | 5433 | PostgreSQL |
+| `pgbouncer` | 6432 | Connection pooler |
+| `backend` | 5000 | Flask API |
+| `frontend` | 3000 | React dev server |
+| `grafana` | 3001 | Monitoring dashboard |
 
+Verify:
 ```bash
 docker compose ps
-```
-
-Verify the API is up:
-
-```bash
-curl http://localhost:5000/health
-# → {"status": "ok"}
+curl http://localhost:5000/health   # → {"status": "ok"}
 ```
 
 ---
 
 ### 3. Apply the database schema
 
-Run once to create the PostgreSQL tables:
-
 ```bash
 docker compose exec -T db bash -c 'psql -U $POSTGRES_USER -d $POSTGRES_DB' < backend/migrations/001_schema.sql
 ```
 
 Verify:
-
 ```bash
 docker compose exec db bash -c 'psql -U $POSTGRES_USER -d $POSTGRES_DB -c "\dt"'
 # → users, query_logs, result_cache
@@ -187,8 +206,6 @@ Node counts:
 
 ### 5. Compute PageRank scores
 
-Runs weighted PageRank via NetworkX, writes scores back to Neo4j:
-
 ```bash
 docker compose exec backend python /data/compute_pagerank.py
 ```
@@ -210,10 +227,9 @@ Open `http://localhost:3000` in your browser.
 - **Search** — type any natural language question about movies
 - **Register / Login** — create an account, JWT token stored in localStorage
 - **Analytics** — see top queries, cache hit rate, average latency
+- **Grafana** — open `http://localhost:3001` (admin / admin) for live metrics
 
 ---
-![alt text](image-2.png)
-![alt text](image-1.png)
 
 ## API Endpoints
 
@@ -221,7 +237,7 @@ Open `http://localhost:3000` in your browser.
 ```bash
 GET /api/search?q=Who directed Inception?
 ```
-Response includes `cache_hit: true/false` — repeated queries are served from PostgreSQL cache (~28x faster than live Neo4j queries).
+Response includes `cache_hit: true/false` — repeated queries skip Neo4j entirely.
 
 ### Auth
 ```bash
@@ -244,7 +260,6 @@ GET /api/analytics
 docker compose exec backend pytest tests/ -v
 ```
 
-Expected output:
 ```
 tests/test_search.py::test_empty_query_returns_400          PASSED
 tests/test_search.py::test_blank_query_returns_400          PASSED
@@ -262,9 +277,81 @@ tests/test_search.py::test_search_service_error_returns_500 PASSED
 # Stop containers (data preserved)
 docker compose down
 
-# Stop and delete PostgreSQL data
+# Stop and delete all local data (PostgreSQL + Grafana volumes)
 docker compose down -v
 ```
 
 If you wipe with `-v`, re-run steps 3 and 5 (schema migration + PageRank).
 Neo4j AuraDB is a cloud service and is unaffected by `down -v`.
+
+---
+
+## Performance Optimizations
+
+All benchmarks on a 50K+ row `query_logs` table.
+
+---
+
+### 1. Query Result Cache (~28x faster for repeated queries)
+
+Repeated identical queries are served from PostgreSQL `result_cache` instead of calling OpenAI + Neo4j.
+
+| Path | Avg latency |
+|------|------------|
+| Cache miss (OpenAI + Neo4j) | ~1,100ms |
+| Cache hit (PostgreSQL) | ~38ms |
+
+---
+
+### 2. PostgreSQL Index on `created_at` (~70% faster analytics)
+
+The analytics query filters `query_logs` by time range. Without an index, PostgreSQL reads every row.
+
+**Before:**
+```
+Seq Scan on query_logs
+Rows scanned:  51,146  |  Rows removed by filter: 39,143
+Execution time: 18.654ms
+```
+
+**After (`CREATE INDEX idx_logs_created ON query_logs (created_at DESC)`):**
+```
+Bitmap Index Scan on idx_logs_created
+Rows scanned:  12,002 (skipped 39,143 old rows)
+Execution time: 5.674ms
+```
+
+---
+
+### 3. Materialized View for Analytics (~22x faster aggregation)
+
+`GET /api/analytics` previously ran a full aggregation over 50K+ rows on every request.
+
+**Before:**
+```
+Seq Scan on query_logs  —  51,146 rows  —  15.355ms
+```
+
+**After (materialized view `search_stats` with hourly pre-aggregation):**
+```
+Seq Scan on search_stats  —  724 rows  —  0.693ms
+```
+
+Refresh after new data:
+```sql
+REFRESH MATERIALIZED VIEW CONCURRENTLY search_stats;
+```
+
+---
+
+### 4. PgBouncer Connection Pooling (0 failures at 50 concurrent users)
+
+PgBouncer in transaction pool mode (`pool_size=10`) serves 50 concurrent users through 10 reused PostgreSQL connections.
+
+**Load test (locust, 50 users, 60 seconds):**
+
+| Endpoint | Avg | Median | Max | Req/s | Failures |
+|----------|-----|--------|-----|-------|----------|
+| `/api/search` (cached) | 28ms | 23ms | 291ms | 19/s | 0 |
+| `/api/analytics` | 48ms | 45ms | 106ms | 5/s | 0 |
+| Aggregated | 33ms | 27ms | 291ms | 25/s | 0 |
