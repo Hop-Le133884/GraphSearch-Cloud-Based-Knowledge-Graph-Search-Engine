@@ -8,10 +8,22 @@ def create_app(config_class=Config):
 
     CORS(app)
 
-    # Health check - lets Docker/load balancer verify the app is alive
+    # Health check - verifies Flask is up and Neo4j is reachable
     @app.route("/health")
     def health():
-        return {"status": "ok"}, 200
+        import os
+        from neo4j import GraphDatabase
+        try:
+            driver = GraphDatabase.driver(
+                os.environ["NEO4J_URI"],
+                auth=(os.environ["NEO4J_USER"], os.environ["NEO4J_PASSWORD"])
+            )
+            driver.verify_connectivity()
+            driver.close()
+            neo4j_status = "ok"
+        except Exception:
+            neo4j_status = "down"
+        return {"status": "ok", "neo4j": neo4j_status}, 200
     
     # blueprints
     from app.routes.search import search_bp
