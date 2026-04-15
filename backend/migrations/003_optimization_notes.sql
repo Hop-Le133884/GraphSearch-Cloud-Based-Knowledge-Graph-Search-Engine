@@ -33,3 +33,14 @@ LIMIT 10;
 -- Scan changed from Seq Scan to Bitmap Index Scan
 -- =============================================
 
+
+-- =============================================
+-- LOAD TEST RESULTS (locust, 50 concurrent users, 60s)
+-- =============================================
+-- /api/search [cached]: avg 28ms, median 23ms, 19 req/s, 0 failures
+-- /api/analytics:       avg 48ms, median 45ms,  5 req/s, 0 failures
+-- Aggregated:           avg 33ms, median 27ms, 25 req/s, 0 failures
+--
+-- PgBouncer pool_size=10 served 50 concurrent users with 0 failures.
+-- PostgreSQL connections held: 10 (not 50).
+-- =============================================

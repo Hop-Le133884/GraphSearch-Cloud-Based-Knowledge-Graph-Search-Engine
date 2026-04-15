@@ -212,6 +212,8 @@ Open `http://localhost:3000` in your browser.
 - **Analytics** — see top queries, cache hit rate, average latency
 
 ---
+![alt text](image-2.png)
+![alt text](image-1.png)
 
 ## API Endpoints
 
