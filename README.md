@@ -247,10 +247,12 @@ POST /api/auth/login      { "email": "...", "password": "..." }
 # login returns { "token": "eyJ..." }
 ```
 
-### Analytics
+### Analytics (admin only)
 ```bash
 GET /api/analytics
-# → { total_queries, cache_hit_rate, avg_latency_ms, top_queries }
+Authorization: Bearer <admin_jwt_token>
+# → { total_queries, cache_hit_rate, avg_latency_cached_ms, avg_latency_live_ms, top_queries }
+# 401 if no token, 403 if not admin
 ```
 
 ---
@@ -406,3 +408,49 @@ docker compose -f docker-compose.prod.yml up --build -d
 | Frontend | http://98.81.243.90:3000 |
 | Backend API | http://98.81.243.90:5000/health |
 | Grafana | http://98.81.243.90:3001 (admin / admin) |
+
+---
+
+### CI/CD — GitHub Actions
+
+Every push to `main` automatically deploys to EC2. No manual `git pull` needed.
+
+```
+git push origin main
+       │
+       ▼
+GitHub Actions (.github/workflows/deploy.yml)
+       │  SSH into EC2
+       │  git pull origin main
+       │  docker compose -f docker-compose.prod.yml up --build -d
+       ▼
+EC2 running latest code
+```
+
+Secrets required in GitHub → Settings → Secrets:
+
+| Secret | Value |
+|--------|-------|
+| `EC2_HOST` | EC2 public IP |
+| `EC2_USER` | `ec2-user` |
+| `EC2_SSH_KEY` | Contents of `.pem` key file |
+
+---
+
+## Security — Role-Based Access Control (RBAC)
+
+The `/api/analytics` endpoint is restricted to `admin` users only.
+
+| Request | Response |
+|---------|----------|
+| No token | `401 {"error": "Missing token"}` |
+| Valid token, `role = user` | `403 {"error": "Forbidden"}` |
+| Valid token, `role = admin` | `200` analytics data |
+
+The `role` is embedded in the JWT at login time and verified on every request by the `@require_role("admin")` decorator in `auth_service.py`.
+
+To promote a user to admin:
+```sql
+UPDATE users SET role = 'admin' WHERE email = 'your@email.com';
+```
+The user must log in again after the role change — the old token still carries `role: user`.
