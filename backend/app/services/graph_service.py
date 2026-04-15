@@ -39,6 +39,8 @@ Rules:
 5. For person searches return: name, bio, pagerank_score
 6. For movie searches return: title, released, bio, pagerank_score
 7. Never use APOC procedures.
+8. Always use DISTINCT when returning nodes to avoid duplicate results.
+   Use: RETURN DISTINCT p.name, p.bio, p.pagerank_score
 
 Question: {question}
 

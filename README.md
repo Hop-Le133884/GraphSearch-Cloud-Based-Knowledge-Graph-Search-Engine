@@ -1,8 +1,8 @@
 # GraphSearch — Cloud-Based Knowledge Graph Search Engine
 
-A semantic search engine that converts natural language queries into Neo4j graph traversals, backed by PostgreSQL for caching and analytics.
+A semantic search engine that converts natural language queries into Neo4j graph traversals, backed by PostgreSQL for caching, auth, and analytics — with a React frontend.
 
-**Example:** Ask `"Who directed Inception?"` → LangChain converts it to Cypher → runs against Neo4j → returns Christopher Nolan with bio and PageRank score.
+**Example:** Ask `"Who directed Inception?"` → LangChain converts it to Cypher → runs against Neo4j → returns Christopher Nolan with bio and PageRank score. Repeated queries are served from PostgreSQL cache (~28x faster).
 
 ---
 
@@ -11,7 +11,8 @@ A semantic search engine that converts natural language queries into Neo4j graph
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          FRONTEND (React)                           │
-│              Search bar → Results display → Analytics page          │
+│         Search bar → Result cards → Analytics dashboard             │
+│         Login / Register pages → JWT stored in localStorage         │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │ REST API
 ┌──────────────────────────────▼──────────────────────────────────────┐
@@ -19,9 +20,10 @@ A semantic search engine that converts natural language queries into Neo4j graph
 │                                                                     │
 │  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────┐      │
 │  │ /api/search  │  │  /api/auth   │  │  /api/analytics       │      │
-│  │  LangChain   │  │  JWT auth    │  │  Top queries, avg     │      │
-│  │  → Cypher    │  │  User CRUD   │  │  latency, graph stats │      │
-│  │  → Neo4j     │  │              │  │                       │      │
+│  │  LangChain   │  │  register    │  │  top queries          │      │
+│  │  → Cypher    │  │  login (JWT) │  │  avg latency          │      │
+│  │  → Neo4j     │  │              │  │  cache hit rate       │      │
+│  │  → PG cache  │  │              │  │                       │      │
 │  └──────┬───────┘  └──────┬───────┘  └───────────┬───────────┘      │
 └─────────┼─────────────────┼──────────────────────┼──────────────────┘
           │                 │                      │
@@ -47,7 +49,7 @@ A semantic search engine that converts natural language queries into Neo4j graph
 
 ```
 GraphSearch/
-├── docker-compose.yml          # PostgreSQL + PgBouncer + Flask
+├── docker-compose.yml          # PostgreSQL + PgBouncer + Flask + React
 ├── .env                        # your secrets (not committed)
 ├── .env.example                # template for .env
 │
@@ -55,15 +57,30 @@ GraphSearch/
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   ├── run.py                  # Flask entry point
+│   ├── migrations/
+│   │   └── 001_schema.sql      # users, query_logs, result_cache tables
 │   ├── app/
 │   │   ├── __init__.py         # app factory, registers blueprints
 │   │   ├── config.py           # reads env vars
 │   │   ├── routes/
-│   │   │   └── search.py       # GET /api/search
+│   │   │   ├── search.py       # GET /api/search
+│   │   │   ├── auth.py         # POST /api/auth/register, /api/auth/login
+│   │   │   └── analytics.py    # GET /api/analytics
 │   │   └── services/
-│   │       └── graph_service.py  # NL → Cypher → Neo4j pipeline
+│   │       ├── graph_service.py   # NL → Cypher → Neo4j pipeline
+│   │       ├── cache_service.py   # PostgreSQL cache + query logging
+│   │       └── auth_service.py    # bcrypt + JWT
 │   └── tests/
 │       └── test_search.py      # pytest suite
+│
+├── frontend/
+│   └── src/
+│       ├── App.js              # router, nav, search page
+│       ├── api.js              # all fetch calls to backend
+│       └── pages/
+│           ├── Login.js
+│           ├── Register.js
+│           └── Analytics.js    # stats cards + bar chart
 │
 └── data/
     ├── ingest_tmdb.py          # pulls TMDB data into Neo4j
@@ -112,10 +129,11 @@ OPENAI_API_KEY=sk-...
 docker compose up --build -d
 ```
 
-This starts three services:
+This starts four services:
 - `db` — PostgreSQL on port 5433
 - `pgbouncer` — connection pooler on port 6432
 - `backend` — Flask API on port 5000
+- `frontend` — React dev server on port 3000
 
 Verify they're running:
 
@@ -132,28 +150,44 @@ curl http://localhost:5000/health
 
 ---
 
-### 3. Ingest movie data into Neo4j
+### 3. Apply the database schema
 
-This pulls 500 popular movies + cast + directors from TMDB and stores them as a graph in Neo4j AuraDB. Takes ~5-10 minutes.
+Run once to create the PostgreSQL tables:
+
+```bash
+docker compose exec -T db bash -c 'psql -U $POSTGRES_USER -d $POSTGRES_DB' < backend/migrations/001_schema.sql
+```
+
+Verify:
+
+```bash
+docker compose exec db bash -c 'psql -U $POSTGRES_USER -d $POSTGRES_DB -c "\dt"'
+# → users, query_logs, result_cache
+```
+
+---
+
+### 4. Ingest movie data into Neo4j
+
+Pulls 500 popular movies + cast + directors from TMDB into Neo4j AuraDB. Takes ~5-10 minutes.
+
+> **Note:** Neo4j AuraDB Free pauses after 3 days of inactivity. Resume it from the AuraDB console before running this.
 
 ```bash
 docker compose exec backend python /data/ingest_tmdb.py
 ```
 
-Expected output at the end:
+Expected output:
 ```
 Node counts:
-  Person: 4276
-  Movie: 536
-  Genre: 19
-  Company: 690
+  Person: 4276  |  Movie: 536  |  Genre: 19  |  Company: 690
 ```
 
 ---
 
-### 4. Compute PageRank scores
+### 5. Compute PageRank scores
 
-This runs weighted PageRank via NetworkX on the Person-Person and Movie-Movie graphs, then writes scores back to Neo4j.
+Runs weighted PageRank via NetworkX, writes scores back to Neo4j:
 
 ```bash
 docker compose exec backend python /data/compute_pagerank.py
@@ -165,44 +199,39 @@ Top 5 persons by PageRank:
   Leonardo DiCaprio: 0.00312
   Ralph Fiennes: 0.00298
   ...
-Top 5 movies by PageRank:
-  Avengers: Endgame: 0.00445
-  ...
 ```
 
 ---
 
-## Using the Search API
+## Using the App
 
+Open `http://localhost:3000` in your browser.
+
+- **Search** — type any natural language question about movies
+- **Register / Login** — create an account, JWT token stored in localStorage
+- **Analytics** — see top queries, cache hit rate, average latency
+
+---
+
+## API Endpoints
+
+### Search
 ```bash
-curl -G "http://localhost:5000/api/search" \
-  --data-urlencode "q=Who directed Inception?"
+GET /api/search?q=Who directed Inception?
+```
+Response includes `cache_hit: true/false` — repeated queries are served from PostgreSQL cache (~28x faster than live Neo4j queries).
+
+### Auth
+```bash
+POST /api/auth/register   { "email": "...", "password": "..." }
+POST /api/auth/login      { "email": "...", "password": "..." }
+# login returns { "token": "eyJ..." }
 ```
 
-
-Response:
-
-```json
-{
-  "query": "Who directed Inception?",
-  "cypher": "MATCH (p:Person)-[:DIRECTED]->(m:Movie) WHERE toLower(m.title) CONTAINS toLower(\"Inception\") RETURN p.name, p.bio, p.pagerank_score ORDER BY p.pagerank_score DESC LIMIT 20",
-  "results": [
-    {
-      "p.name": "Christopher Nolan",
-      "p.bio": "Sir Christopher Edward Nolan is a British and American filmmaker...",
-      "p.pagerank_score": 0.0009036843085744324
-    }
-  ],
-  "count": 1
-}
-```
-![Natural language to graph query flow](nl_to_graph.png)
-
-More example queries:
+### Analytics
 ```bash
-curl -G "http://localhost:5000/api/search" --data-urlencode "q=Movies starring Leonardo DiCaprio"
-curl -G "http://localhost:5000/api/search" --data-urlencode "q=Top action movies"
-curl -G "http://localhost:5000/api/search" --data-urlencode "q=Who produced Interstellar?"
+GET /api/analytics
+# → { total_queries, cache_hit_rate, avg_latency_ms, top_queries }
 ```
 
 ---
@@ -215,9 +244,9 @@ docker compose exec backend pytest tests/ -v
 
 Expected output:
 ```
-tests/test_search.py::test_empty_query_returns_400         PASSED
-tests/test_search.py::test_blank_query_returns_400         PASSED
-tests/test_search.py::test_valid_query_returns_results     PASSED
+tests/test_search.py::test_empty_query_returns_400          PASSED
+tests/test_search.py::test_blank_query_returns_400          PASSED
+tests/test_search.py::test_valid_query_returns_results      PASSED
 tests/test_search.py::test_search_service_error_returns_500 PASSED
 
 4 passed in 0.54s
@@ -228,12 +257,12 @@ tests/test_search.py::test_search_service_error_returns_500 PASSED
 ## Stopping the project
 
 ```bash
-# Stop containers (data is preserved)
+# Stop containers (data preserved)
 docker compose down
 
-# Stop and delete all data (PostgreSQL volume wiped)
+# Stop and delete PostgreSQL data
 docker compose down -v
 ```
 
-If you wipe with `-v`, PostgreSQL data is deleted — you need to re-apply the schema migration.
+If you wipe with `-v`, re-run steps 3 and 5 (schema migration + PageRank).
 Neo4j AuraDB is a cloud service and is unaffected by `down -v`.
