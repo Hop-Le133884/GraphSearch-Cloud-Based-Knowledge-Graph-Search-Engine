@@ -41,7 +41,7 @@ Rules:
 7. Never use APOC procedures.
 8. Always use DISTINCT when returning nodes to avoid duplicate results.
    Use: RETURN DISTINCT p.name, p.bio, p.pagerank_score
-9. Never use exact property match {name: "..."} for names — always use case-insensitive CONTAINS:
+9. Never use exact property match {{name: "..."}} for names — always use case-insensitive CONTAINS:
    WHERE toLower(p.name) CONTAINS toLower("leonardo dicaprio")
 10. When the question asks about a specific person ("who is X", "star named X",
     "tell me about X", "actor named X", "director named X"), match and return the
