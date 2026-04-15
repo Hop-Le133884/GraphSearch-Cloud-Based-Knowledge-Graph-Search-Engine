@@ -49,6 +49,7 @@ services:
     command: sh -c "npm install && npm start"
     environment:
       - CHOKIDAR_USEPOLLING=true
+      - REACT_APP_API_URL=http://98.81.243.90:5000
     depends_on:
       - backend
 
