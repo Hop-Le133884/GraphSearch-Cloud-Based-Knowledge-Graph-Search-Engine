@@ -24,6 +24,9 @@ export async function login(email, password) {
 }
 
 export async function getAnalytics() {
-    const resp = await fetch(`${API}/api/analytics`);
+    const token = localStorage.getItem("token");
+    const resp = await fetch(`${API}/api/analytics`, {
+        headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    });
     return resp.json();
 }

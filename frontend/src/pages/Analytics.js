@@ -14,8 +14,9 @@ export default function Analytics() {
             .catch(err => setError(err.message));
     }, []);
 
-    if (error) return <div className="error">{error}</div>;
+    if (error) return <div className="app"><p style={{color:"red"}}>{error}</p></div>;
     if (!data)  return <div className="app"><p>Loading...</p></div>;
+    if (data.error) return <div className="app"><p style={{color:"red"}}>Access denied: {data.error}</p></div>;
 
     return (
         <div className="app">
