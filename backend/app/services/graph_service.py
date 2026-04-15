@@ -41,10 +41,6 @@ Rules:
 7. Never use APOC procedures.
 8. Always use DISTINCT when returning nodes to avoid duplicate results.
    Use: RETURN DISTINCT p.name, p.bio, p.pagerank_score
-9. When the question asks about a specific person by name ("who is X", "star named X",
-   "tell me about X", "actor named X", "director named X"), match and return the Person
-   node directly — do NOT return movies they appeared in.
-
 Question: {question}
 
 Cypher query:
