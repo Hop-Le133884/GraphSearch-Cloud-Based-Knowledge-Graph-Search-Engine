@@ -67,7 +67,7 @@ def decode_token(token: str) -> dict | None:
     """
     try:
         return jwt.decode(token, os.environ["SECRET_KEY"], algorithms=["HS256"])
-    except jwt.PyJWKError:
+    except jwt.PyJWTError:
         return None
 
 
