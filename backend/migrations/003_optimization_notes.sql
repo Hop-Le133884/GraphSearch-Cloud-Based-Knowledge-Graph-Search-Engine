@@ -44,3 +44,13 @@ LIMIT 10;
 -- PgBouncer pool_size=10 served 50 concurrent users with 0 failures.
 -- PostgreSQL connections held: 10 (not 50).
 -- =============================================
+
+-- =============================================
+-- MATERIALIZED VIEW: search_stats
+-- =============================================
+-- Raw aggregation on query_logs: Seq Scan 51,146 rows → 15.355ms
+-- Materialized view read:        Seq Scan    724 rows →  0.693ms
+-- Improvement: 22x faster
+--
+-- Refresh: REFRESH MATERIALIZED VIEW CONCURRENTLY search_stats;
+-- =============================================
