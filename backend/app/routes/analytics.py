@@ -23,9 +23,16 @@ def analytics():
             """)
             cache_hit_rate = cur.fetchone()[0]
 
-            # Average latency
-            cur.execute("SELECT ROUND(AVG(latency_ms)) FROM query_logs")
-            avg_latency_ms = cur.fetchone()[0]
+            # Average latency split by cache hit/miss
+            cur.execute("""
+                SELECT
+                    ROUND(AVG(CASE WHEN cache_hit     THEN latency_ms END)) AS avg_cached_ms,
+                    ROUND(AVG(CASE WHEN NOT cache_hit THEN latency_ms END)) AS avg_live_ms
+                FROM query_logs
+            """)
+            row = cur.fetchone()
+            avg_latency_cached_ms = row[0]
+            avg_latency_live_ms   = row[1]
 
             # Top 10 most searched queries
             cur.execute("""
@@ -41,10 +48,11 @@ def analytics():
             ]
 
         return jsonify({
-            "total_queries":   total_queries,
-            "cache_hit_rate":  float(cache_hit_rate or 0),
-            "avg_latency_ms":  float(avg_latency_ms or 0),
-            "top_queries":     top_queries,
+            "total_queries":          total_queries,
+            "cache_hit_rate":         float(cache_hit_rate or 0),
+            "avg_latency_cached_ms":  float(avg_latency_cached_ms or 0),
+            "avg_latency_live_ms":    float(avg_latency_live_ms or 0),
+            "top_queries":            top_queries,
         }), 200
     
     except Exception as e:

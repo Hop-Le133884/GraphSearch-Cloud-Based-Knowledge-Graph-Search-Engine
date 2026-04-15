@@ -11,7 +11,7 @@ export default function Analytics() {
     useEffect(() => {
         getAnalytics()
             .then(setData)
-            .catch(err => setError(error.message));
+            .catch(err => setError(err.message));
     }, []);
 
     if (error) return <div className="error">{error}</div>;
@@ -31,8 +31,12 @@ export default function Analytics() {
             <div className="stat-label">Cache Hit Rate</div>
             </div>
             <div className="stat-card">
-            <div className="stat-value">{data.avg_latency_ms}ms</div>
-            <div className="stat-label">Avg Latency</div>
+            <div className="stat-value">{data.avg_latency_cached_ms}ms</div>
+            <div className="stat-label">Avg Latency (Cached)</div>
+            </div>
+            <div className="stat-card">
+            <div className="stat-value">{data.avg_latency_live_ms}ms</div>
+            <div className="stat-label">Avg Latency (Live)</div>
             </div>
         </div>
 
