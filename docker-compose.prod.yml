@@ -1,0 +1,66 @@
+services:
+
+# No local db — using RDS PostgreSQL
+
+# -- PgBouncer (connection pooler → RDS)
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: "100"
+      DEFAULT_POOL_SIZE: "10"
+      AUTH_TYPE: scram-sha-256
+    ports:
+      - "6432:5432"
+
+# -- Flask Backend
+  backend:
+    build: ./backend
+    environment:
+      FLASK_DEBUG: "false"
+      SECRET_KEY: ${SECRET_KEY}
+      POSTGRES_HOST: pgbouncer
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      NEO4J_URI: ${NEO4J_URI}
+      NEO4J_USER: ${NEO4J_USER}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      TMDB_API_TOKEN: ${TMDB_API_TOKEN}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    ports:
+      - "5000:5000"
+    depends_on:
+      - pgbouncer
+    volumes:
+      - ./backend:/app
+      - ./data:/data
+
+# -- React Frontend
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "3000:3000"
+    command: sh -c "npm install && npm start"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+
+# -- Grafana
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+volumes:
+  grafana_data:
