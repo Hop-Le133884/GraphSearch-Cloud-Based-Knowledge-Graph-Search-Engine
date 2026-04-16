@@ -1,4 +1,4 @@
-# GraphSearch — Cloud-Based Knowledge Graph Search Engine
+# GraphSearch — Cloud-Based Knowledge Graph Search Engine http://18.215.173.161/
 
 A semantic search engine that converts natural language queries into Neo4j graph traversals, backed by PostgreSQL for caching, auth, and analytics — with a React frontend and Grafana monitoring.
 
