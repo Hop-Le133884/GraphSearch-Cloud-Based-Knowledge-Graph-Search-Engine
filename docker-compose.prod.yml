@@ -49,7 +49,7 @@ services:
     command: sh -c "npm install && npm start"
     environment:
       - CHOKIDAR_USEPOLLING=true
-      - REACT_APP_API_URL=http://18.215.173.161:5000
+      - REACT_APP_API_URL=https://graphsearch.duckdns.org
     depends_on:
       - backend
 
