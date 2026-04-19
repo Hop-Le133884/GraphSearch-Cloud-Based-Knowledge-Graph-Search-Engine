@@ -1,4 +1,4 @@
-# GraphSearch — Cloud-Based Knowledge Graph Search Engine http://18.215.173.161/
+# GraphSearch — Cloud-Based Knowledge Graph Search Engine http://34.203.34.197/
 
 A semantic search engine that converts natural language queries into Neo4j graph traversals, backed by PostgreSQL for caching, auth, and analytics — with a React frontend and Grafana monitoring.
 
@@ -401,13 +401,13 @@ psql "host=<rds-endpoint> port=5432 dbname=graphsearch user=graphsearch sslmode=
 docker compose -f docker-compose.prod.yml up --build -d
 ```
 
-### Live URLs (EC2 public IP: 18.215.173.161)
+### Live URLs (EC2 public IP: 34.203.34.197)
 
 | Service | URL |
 |---------|-----|
-| Frontend | http://18.215.173.161:3000 |
-| Backend API | http://18.215.173.161:5000/health |
-| Grafana | http://18.215.173.161:3001 (admin / admin) |
+| Frontend | http://34.203.34.197:3000 |
+| Backend API | http://34.203.34.197:5000/health |
+| Grafana | http://34.203.34.197:3001 (admin / admin) |
 
 ---
 
