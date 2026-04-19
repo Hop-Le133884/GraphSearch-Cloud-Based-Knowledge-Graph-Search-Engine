@@ -227,8 +227,23 @@ Open `http://localhost:3000` in your browser.
 
 - **Search** — type any natural language question about movies
 - **Register / Login** — create an account, JWT token stored in localStorage
-- **Analytics** — see top queries, cache hit rate, average latency
+- **Analytics** — see top queries, cache hit rate, average latency (admin only)
 - **Grafana** — open `http://localhost:3001` (admin / admin) for live metrics
+
+### Promoting a user to admin
+
+Register an account via the UI, then SSH into EC2 and run:
+
+```bash
+psql "host=graphsearch-db.c0juoycmq3k9.us-east-1.rds.amazonaws.com port=5432 dbname=graphsearch user=graphsearch sslmode=require"
+```
+
+```sql
+UPDATE users SET role = 'admin' WHERE email = 'your@email.com';
+\q
+```
+
+Log out and log back in — the new token will carry `role: admin` and unlock the Analytics page.
 
 ---
 
@@ -401,12 +416,12 @@ psql "host=<rds-endpoint> port=5432 dbname=graphsearch user=graphsearch sslmode=
 docker compose -f docker-compose.prod.yml up --build -d
 ```
 
-### Live URLs (EC2 public IP: 34.203.34.197)
+### Live URLs
 
 | Service | URL |
 |---------|-----|
-| Frontend | http://34.203.34.197:3000 |
-| Backend API | http://34.203.34.197:5000/health |
+| Frontend | https://graphsearch.duckdns.org |
+| Backend API | https://graphsearch.duckdns.org/health |
 | Grafana | http://34.203.34.197:3001 (admin / admin) |
 
 ---
