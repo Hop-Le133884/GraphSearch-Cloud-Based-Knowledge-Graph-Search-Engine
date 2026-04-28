@@ -1,4 +1,4 @@
-# GraphSearch — Cloud-Based Knowledge Graph Search Engine http://34.203.34.197/
+# GraphSearch — Cloud-Based Knowledge Graph Search Engine Live demo: https://graphsearch.duckdns.org/
 
 A semantic search engine that converts natural language queries into Neo4j graph traversals, backed by PostgreSQL for caching, auth, and analytics — with a React frontend and Grafana monitoring.
 
