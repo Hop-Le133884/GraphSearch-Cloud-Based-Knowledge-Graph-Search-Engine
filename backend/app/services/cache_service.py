@@ -54,7 +54,11 @@ def save_to_cache(query_hash: str, query_text: str, results: dict):
             cur.execute("""
                 INSERT INTO result_cache (query_hash, query_text, result_json)
                 VALUES (%s, %s, %s)
-                ON CONFLICT (query_hash) DO NOTHING
+                ON CONFLICT (query_hash) DO UPDATE
+                    SET result_json = EXCLUDED.result_json,
+                        query_text  = EXCLUDED.query_text,
+                        expires_at  = now() + INTERVAL '24 hours',
+                        hit_count   = 0
             """, (query_hash, query_text, json.dumps(results)))
             conn.commit()
     finally:
