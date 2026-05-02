@@ -16,7 +16,7 @@ def get_neo4j_driver():
 CYPHER_PROMPT = PromptTemplate(
     input_variables = ["question"],
     template="""
-You are an expert at conerting natural language questions into Neo4j Cypher queries.
+You are an expert at converting natural language questions into Neo4j Cypher queries.
 
 The graph schema is:
 - Nodes: (:Person {{name, bio, birthday, place_of_birth, pagerank_score}})
@@ -33,7 +33,9 @@ The graph schema is:
 Rules:
 1. Return ONLY the Cypher query, no explanation, no markdown, no backticks.
 2. Always LIMIT results to 20.
-3. Always ORDER BY pagerank_score DESC when available.
+3. Always ORDER BY pagerank_score DESC when available. ORDER BY must always come BEFORE LIMIT.
+   Correct:   RETURN DISTINCT p.name ORDER BY p.pagerank_score DESC LIMIT 20
+   Incorrect: RETURN DISTINCT p.name LIMIT 20 ORDER BY p.pagerank_score DESC
 4. Embed values directly as string literals, never use Cypher parameters like $value. 
     Example: WHERE toLower(m.title) CONTAINS toLower("inception")
 5. For person searches return: name, bio, pagerank_score
