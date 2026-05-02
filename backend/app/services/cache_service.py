@@ -15,8 +15,9 @@ def get_db_conn():
     )
 
 def hash_query(query_text: str) -> str:
-    """SHA-256 hash of lowercased query - cache key."""
-    normalized = query_text.strip().lower()
+    """SHA-256 hash of normalized query - strips trailing punctuation so
+    'Who directed Inception?' and 'Who directed Inception' share one cache entry."""
+    normalized = query_text.strip().lower().rstrip('?!.')
     return hashlib.sha256(normalized.encode()).hexdigest()
 
 def get_cached_result(query_hash: str) -> dict | None:
