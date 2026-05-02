@@ -5,6 +5,7 @@ services:
 # -- PgBouncer (connection pooler → RDS)
   pgbouncer:
     image: edoburu/pgbouncer:latest
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       POOL_MODE: transaction
@@ -17,6 +18,7 @@ services:
 # -- Flask Backend
   backend:
     build: ./backend
+    restart: unless-stopped
     environment:
       FLASK_DEBUG: "false"
       SECRET_KEY: ${SECRET_KEY}
@@ -41,6 +43,7 @@ services:
 # -- React Frontend
   frontend:
     image: node:20-alpine
+    restart: unless-stopped
     working_dir: /app
     volumes:
       - ./frontend:/app
